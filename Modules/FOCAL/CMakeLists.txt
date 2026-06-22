@@ -2,7 +2,7 @@
 
 add_library(O2QcFOCAL)
 
-target_sources(O2QcFOCAL PRIVATE src/PedestalCalibTask.cxx  src/TestbeamRawTask.cxx)
+target_sources(O2QcFOCAL PRIVATE src/HCalTestbeamTask.cxx  src/PedestalCalibTask.cxx  src/TestbeamRawTask.cxx)
 
 target_include_directories(
   O2QcFOCAL
@@ -19,6 +19,7 @@ install(TARGETS O2QcFOCAL
 
 add_root_dictionary(O2QcFOCAL
   HEADERS
+  include/FOCAL/HCalTestbeamTask.h
   include/FOCAL/TestbeamRawTask.h
       include/FOCAL/PedestalCalibTask.h
         LINKDEF include/FOCAL/LinkDef.h)

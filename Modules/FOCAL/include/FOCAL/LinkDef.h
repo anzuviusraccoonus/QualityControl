@@ -7,4 +7,5 @@
 
 #pragma link C++ class o2::quality_control_modules::focal::PedestalCalibTask + ;
 
+#pragma link C++ class o2::quality_control_modules::focal::HCalTestbeamTask+;
 #endif

@@ -59,6 +59,8 @@ HCalTestbeamTask::~HCalTestbeamTask()
 
 void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 {
+  mMapper = o2::focal::HCalMapper();
+
   auto get_bool = [](const std::string_view input) -> bool {
     return input == "true";
   };
@@ -109,10 +111,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mPayloadSizeHCalGBT = new TH1D("PayloadSizeHCalGBT", "Payload Size GBT Words", 256, 0., 0.);
   getObjectsManager()->startPublishing(mPayloadSizeHCalGBT);
 
+
   mHCalGlobalADCSumCanvas = new TCanvas("HCalGlobalADCSum", "Global ADC Sum", 1920, 1080);
   mHCalGlobalADCSum = new THStack("HCalGlobalADCSumStack", "Global ADC Sum Stack");
   for (int sample = 0; sample < 16; ++sample) {
-    TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%d", sample),
+    TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%02d", sample),
 			                     Form("Sample %02d", sample),
 			                     256, 0., 0.);
 
@@ -124,6 +127,26 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalGlobalADCSum->Draw("plc nostack");
   gPad->BuildLegend();
   getObjectsManager()->startPublishing(mHCalGlobalADCSumCanvas);
+
+
+  mHCalHeatmapCanvas = new TCanvas("HCalHeatmapCanvas", "HCal Heatmap Canvas", 1920, 1080);
+  mHCalHeatmapCanvas->DivideSquare(16, 0.001, 0.001);
+  for (int sample = 0; sample < 16; ++sample) {
+    mHCalHeatmapCanvas->cd(sample+1);
+    TH2D* graph = new TH2D(Form("HCalHeatmapSample_%02d", sample),
+                           Form("Sample %d", sample),
+                           16, -0.5, 16 - 0.5,
+                           12, -0.5, 12 - 0.2);
+
+    graph->SetStats(0);
+    graph->Draw("COLZ");
+    //graph->SetMinimum(0.);
+    //graph->SetMaximum(1024.);
+    gPad->SetLogz();
+    mHCalHeatmapContainer[sample] = graph;
+  }
+  getObjectsManager()->startPublishing(mHCalHeatmapCanvas);
+
 
   for (int i = 0; i < mNUM_ASICS; ++i) {
     mHCalASICChannelADC[i] = new TH2D(Form("HCalADC_ASIC_%d", i),
@@ -246,6 +269,8 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
     return;
   }
 
+  ++mNumEvents;
+
   std::array<int, 2> numSamples = mDecoder.getNumSamplesRead();
   LOGF(debug, "Samples read: %02d %02d", numSamples[0], numSamples[1]);
 
@@ -275,6 +300,17 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 
               globalADCsum += adc;
               mHCalWaveformsContainer[link_id][roc_id][half][chn]->Fill(sample, adc);
+
+              std::pair<int, int> coords = mMapper.getRowCol(link_id, roc_id, half, chn);
+              if ((coords.first == -1) || (coords.second == -1)) {
+                continue;
+              } else {
+
+                // Instead of simply filling histograms with ADC values,
+                // we want to show the "average" ADC value on the heatmaps
+                double previous = mHCalHeatmapContainer[sample]->GetBinContent(coords.second+1, coords.first+1) * mNumEvents; // "unaveraged" value from current cell
+                mHCalHeatmapContainer[sample]->SetBinContent(coords.second+1, coords.first+1, (previous + adc) / (mNumEvents + 1)); // new average value
+              }
             }
           }
         }

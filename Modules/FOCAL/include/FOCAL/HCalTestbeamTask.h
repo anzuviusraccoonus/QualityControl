@@ -27,7 +27,10 @@
 #include "FOCALReconstruction/HCalDecoder.h"
 #include "FOCALReconstruction/HCalDataWord.h"
 #include "FOCALReconstruction/HCalGBTLink.h"
+#include "FOCALReconstruction/HCalMapper.h"
+
 #include "THStack.h"
+
 class TH1;
 class TH2;
 class TProfile2D;
@@ -57,11 +60,14 @@ class HCalTestbeamTask final : public TaskInterface
     static constexpr int mRANGE_ADC = 1024;
     static constexpr int mRANGE_TOA = 1024;
     static constexpr int mRANGE_TOT = 1024;
+    int mNumEvents = 0; // internal counter for re-calculating average values for heatmap
 
   bool isLostTimeframe(framework::ProcessingContext& ctx) const;
   void processHCalEvent(const gsl::span<const char> gbtpayload);
 
   o2::focal::HCalDecoder mDecoder;
+  o2::focal::HCalMapper  mMapper;
+
   bool mDebugMode = false;
 
   /////////////////////////////////////////////////////////////////////////////////////
@@ -95,6 +101,9 @@ class HCalTestbeamTask final : public TaskInterface
   TCanvas* mHCalGlobalADCSumCanvas;
   THStack* mHCalGlobalADCSum;
   TH1* mHCalGlobalADCSumContainer[16];
+
+  TCanvas* mHCalHeatmapCanvas;
+  TH2* mHCalHeatmapContainer[16];
 
 };
 

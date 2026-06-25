@@ -15,6 +15,8 @@
 /// \brief Standalone QC task for FoCal-H beam tests
 ///
 
+#include <boost/crc.hpp>
+
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -191,6 +193,30 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
       }
     }
   }
+
+  // TODO: set up some enum to hold error types to indices or something
+  int numChips = 2 * o2::focal::constants::HCAL_NUM_GBT_LINKS * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK;
+  mHCalDataErrors = new TH2I("HCalDataErrors", "HCal Data Errors",
+                             numChips, -0.5, numChips - 0.5,  // count errors for each chip
+                             5, -0.5, 5 - 0.5);               // number of types of errors
+
+  mHCalDataErrors->GetXaxis()->SetTitle("Data Link (GBTLink:ROC.Half)");
+  mHCalDataErrors->GetYaxis()->SetBinLabel(1, "CRC_CHECKSUM_MISMATCH");
+  mHCalDataErrors->GetYaxis()->SetBinLabel(2, "DAQH_HEADER_MISMATCH");
+  mHCalDataErrors->GetYaxis()->SetBinLabel(3, "DAQH_TRAILER_MISMATCH");
+  mHCalDataErrors->GetYaxis()->SetBinLabel(4, "HAMMING_BITS_SET");
+  mHCalDataErrors->GetYaxis()->SetBinLabel(5, "DECODER_ERROR");
+  int c = 0;
+  for (int i = 0; i < o2::focal::constants::HCAL_NUM_GBT_LINKS; ++i) {
+    for (int j = 0; j < o2::focal::constants::HCAL_NUM_ROCS_PER_LINK; ++j) {
+      for (int k = 0; k < 2; ++k) {
+        mHCalDataErrors->GetXaxis()->SetBinLabel(++c, Form("%02d:%02d.%d", i, j, k));
+      }
+    }
+  }
+  //mHCalDataErrors->Draw("text colz");
+  getObjectsManager()->startPublishing(mHCalDataErrors);
+
 }
 
 void HCalTestbeamTask::startOfActivity(const Activity& activity)
@@ -269,8 +295,16 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
     return;
   }
 
-  ++mNumEvents;
+  if (not mDecoder.isDataValid()) {
+    for (int i = 0; i < 8; ++i) {
+      mHCalDataErrors->Fill(i, 4., 1.);
+    }
 
+    return;
+  }
+
+  ++mNumEvents;
+  LOGF(info, "events: %d", mNumEvents);
   std::array<int, 2> numSamples = mDecoder.getNumSamplesRead();
   LOGF(debug, "Samples read: %02d %02d", numSamples[0], numSamples[1]);
 
@@ -285,6 +319,55 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
           o2::focal::HCalROC currentROC = currentLink.getROC(roc_id);
           for (int half = 0; half < 2; ++half) {
             o2::focal::HCalROCDataLink currentHalf = currentROC.getChipHalf(half);
+            bool errored = false;
+            if (not checkCRC(currentHalf)) {
+              errored = true;
+              LOGF(debug, "CRC mismatch in link %02d:%02d.%d", link_id, roc_id, half);
+              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
+                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             half;
+
+              mHCalDataErrors->Fill(binIndex, 0., 1.);
+            }
+            if (not checkDAQHHeader(currentHalf)) {
+              errored = true;
+              LOGF(debug, "DAQH header mismatch in link %02d:%02d.%d", link_id, roc_id, half);
+              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
+                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             half;
+
+              mHCalDataErrors->Fill(binIndex, 1., 1.);
+            }
+            if (not checkDAQHTrailer(currentHalf)) {
+              errored = true;
+              LOGF(debug, "DAQH trailer mismatch in link %02d:%02d.%d", link_id, roc_id, half);
+              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
+                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             half;
+
+              mHCalDataErrors->Fill(binIndex, 2., 1.);
+            }
+            if (not checkHammingBits(currentHalf)) {
+              errored = true;
+              LOGF(debug, "Hamming decode error bits are set in link %02d:%02d.%d", link_id, roc_id, half);
+              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
+                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
+                             half;
+
+              mHCalDataErrors->Fill(binIndex, 3., 1.);
+            }
+
+            //if (errored) {
+            //  auto words = currentHalf.getWords();
+            //  for (const auto& w : words) {
+            //    LOGF(debug, "%08X", w);
+            //  }
+            //}
+
             for (int chn = 0; chn < 36; ++chn) {
               o2::focal::HCalChannel currentChannel = currentHalf.getChannel(chn);
               int adc = currentChannel.adc;
@@ -388,6 +471,37 @@ bool HCalTestbeamTask::isLostTimeframe(framework::ProcessingContext& ctx) const
   }
 
   return false;
+}
+
+bool HCalTestbeamTask::checkDAQHHeader(o2::focal::HCalROCDataLink half) {
+  return (half.getHeader().hd == 0b1111);
+}
+
+bool HCalTestbeamTask::checkDAQHTrailer(o2::focal::HCalROCDataLink half) {
+  return (half.getHeader().tr == 0b0101);
+}
+
+bool HCalTestbeamTask::checkHammingBits(o2::focal::HCalROCDataLink half) {
+  return (half.getHeader().hm == 0);
+}
+
+bool HCalTestbeamTask::checkCRC(o2::focal::HCalROCDataLink half) {
+  std::array<unsigned int, o2::focal::constants::HCAL_NUM_GBT_LINES_PER_LINK> words = half.getWords();
+  unsigned int crcWord = words[o2::focal::constants::HCAL_NUM_GBT_LINES_PER_LINK - 1];
+
+  boost::crc_basic<32> crc_32(0x04C11DB7, 0x00000000, 0x00000000, false, false);
+  for (int i = 0; i < o2::focal::constants::HCAL_NUM_GBT_LINES_PER_LINK - 1; ++i) {
+    unsigned char bytes[4] = {
+      static_cast<unsigned char>(words[i] >> 24),
+      static_cast<unsigned char>(words[i] >> 16),
+      static_cast<unsigned char>(words[i] >> 8 ),
+      static_cast<unsigned char>(words[i]      ),
+    };
+
+    crc_32.process_bytes(bytes, 4);
+  }
+  
+  return (crc_32.checksum() == crcWord);
 }
 
 } // namespace o2::quality_control_modules::focal

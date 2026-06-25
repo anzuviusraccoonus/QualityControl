@@ -62,6 +62,10 @@ class HCalTestbeamTask final : public TaskInterface
     static constexpr int mRANGE_TOT = 1024;
     int mNumEvents = 0; // internal counter for re-calculating average values for heatmap
 
+  bool checkDAQHHeader(o2::focal::HCalROCDataLink half);
+  bool checkDAQHTrailer(o2::focal::HCalROCDataLink half);
+  bool checkHammingBits(o2::focal::HCalROCDataLink half);
+  bool checkCRC(o2::focal::HCalROCDataLink half);
   bool isLostTimeframe(framework::ProcessingContext& ctx) const;
   void processHCalEvent(const gsl::span<const char> gbtpayload);
 
@@ -88,13 +92,11 @@ class HCalTestbeamTask final : public TaskInterface
   /////////////////////////////////////////////////////////////////////////////////////
   
   TH1* mPayloadSizeHCalGBT = nullptr;
-  //TH1* mHCalGlobalADCSum   = nullptr;
 
   std::array<TH2*, mNUM_ASICS> mHCalASICChannelADC;
   std::array<TH2*, mNUM_ASICS> mHCalASICChannelTOA;
   std::array<TH2*, mNUM_ASICS> mHCalASICChannelTOT;
 
-  //TH2* mHCalWaveforms[2][2][2][36];
   TCanvas* mHCalWaveforms[2][2][2];
   TH2* mHCalWaveformsContainer[2][2][2][36];
 
@@ -104,6 +106,8 @@ class HCalTestbeamTask final : public TaskInterface
 
   TCanvas* mHCalHeatmapCanvas;
   TH2* mHCalHeatmapContainer[16];
+
+  TH2* mHCalDataErrors;
 
 };
 

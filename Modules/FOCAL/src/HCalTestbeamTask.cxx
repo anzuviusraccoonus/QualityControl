@@ -131,6 +131,25 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   getObjectsManager()->startPublishing(mHCalGlobalADCSumCanvas);
 
 
+  mHCalSamplesPerEventCanvas = new TCanvas("HCalSamplesPerEvent", "Number of Samples per Event", 1920, 1080);
+  mHCalSamplesPerEvent = new THStack("HCalSamplesPerEventStack", "Number of Samples per Event");
+  for (int link_id = 0; link_id < 2; ++link_id) {
+    TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink_%d", link_id),
+			                     Form("Link %d", link_id),
+			                     o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT+1,
+                           -0.5, o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT + 0.5);
+
+    mHCalSamplesPerEvent->Add(graph);
+    mHCalSamplesPerEventContainer[link_id] = graph;
+  }
+
+  mHCalSamplesPerEventCanvas->cd(1);
+  mHCalSamplesPerEvent->Draw("plc nostack");
+  gPad->SetLogy();
+  gPad->BuildLegend();
+  getObjectsManager()->startPublishing(mHCalSamplesPerEventCanvas);
+
+
   mHCalHeatmapCanvas = new TCanvas("HCalHeatmapCanvas", "HCal Heatmap Canvas", 1920, 1080);
   mHCalHeatmapCanvas->DivideSquare(16, 0.001, 0.001);
   for (int sample = 0; sample < 16; ++sample) {
@@ -287,15 +306,19 @@ void HCalTestbeamTask::monitorData(o2::framework::ProcessingContext& ctx)
   }
 }
 
+// TODO: clean up this mess of a function
+// (it works well enough though!)
 void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 {
   mDecoder.reset();
   mDecoder.decodeBuffer(hcalpayload);
   if (not mDecoder.hasEventData()) {
+    LOGF(debug, "Event hasEventData = false; skipping");
     return;
   }
 
   if (not mDecoder.isDataValid()) {
+    LOGF(debug, "Event isDataValid = false; skipping");
     for (int i = 0; i < 8; ++i) {
       mHCalDataErrors->Fill(i, 4., 1.);
     }
@@ -304,9 +327,12 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
   }
 
   ++mNumEvents;
-  LOGF(info, "events: %d", mNumEvents);
-  std::array<int, 2> numSamples = mDecoder.getNumSamplesRead();
-  LOGF(debug, "Samples read: %02d %02d", numSamples[0], numSamples[1]);
+  LOGF(debug, "events: %d", mNumEvents);
+  for (int link_id = 0; link_id < 2; ++link_id) {
+    int numSamples = mDecoder.getNumSamplesRead(link_id);
+    LOGF(debug, "Samples read from link %02d: %02d)", link_id, numSamples);
+    mHCalSamplesPerEventContainer[link_id]->Fill(numSamples, 1);
+  }
 
   std::array<std::array<o2::focal::HCalGBTLink, o2::focal::constants::HCAL_NUM_GBT_LINKS>, o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT> links = mDecoder.getData();
 
@@ -430,15 +456,33 @@ void HCalTestbeamTask::reset()
     if (hist) { hist->Reset(); }
   }
 
+  for (auto& hist : mHCalHeatmapContainer) {
+    if (hist) { hist->Reset(); }
+  }
+
+  for (auto& hist : mHCalSamplesPerEventContainer) {
+    if (hist) { hist->Reset(); }
+  }
+
   for (auto& hist : mHCalASICChannelADC) {
       if (hist) { hist->Reset(); }
   }
+
   for (auto& hist : mHCalASICChannelTOT) {
       if (hist) { hist->Reset(); }
   }
+
   for (auto& hist : mHCalASICChannelTOA) {
       if (hist) { hist->Reset(); }
   }
+
+  TH2** begin = &mHCalWaveformsContainer[0][0][0][0];
+  TH2** end   = begin + 2 + 2 + 2 + 36;
+  for (TH2** it = begin; it != end; ++it) {
+    TH2*& hist = *it;
+    if (hist) { hist->Reset(); }
+  }
+
 }
 
 bool HCalTestbeamTask::isLostTimeframe(framework::ProcessingContext& ctx) const

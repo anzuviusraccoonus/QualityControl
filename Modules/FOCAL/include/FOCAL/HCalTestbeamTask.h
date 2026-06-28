@@ -104,6 +104,10 @@ class HCalTestbeamTask final : public TaskInterface
   THStack* mHCalGlobalADCSum;
   TH1* mHCalGlobalADCSumContainer[16];
 
+  TCanvas* mHCalSamplesPerEventCanvas;
+  THStack* mHCalSamplesPerEvent;
+  TH1* mHCalSamplesPerEventContainer[2];
+
   TCanvas* mHCalHeatmapCanvas;
   TH2* mHCalHeatmapContainer[16];
 
@@ -114,4 +118,3 @@ class HCalTestbeamTask final : public TaskInterface
 } // namespace o2::quality_control_modules::focal
 
 #endif // QC_MODULE_FOCAL_FOCALHCALTESTBEAMTASK_H
-

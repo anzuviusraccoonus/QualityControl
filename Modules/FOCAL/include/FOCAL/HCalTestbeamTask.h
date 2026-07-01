@@ -36,6 +36,7 @@ class TH2;
 class TProfile2D;
 
 using namespace o2::quality_control::core;
+using namespace o2::focal::constants;
 
 namespace o2::quality_control_modules::focal
 {
@@ -55,11 +56,6 @@ class HCalTestbeamTask final : public TaskInterface
     void reset() override;
 
   private:
-    static constexpr int mNUM_ASICS = 2;
-    static constexpr int mCHANNELS_PER_ASIC = 76;
-    static constexpr int mRANGE_ADC = 1024;
-    static constexpr int mRANGE_TOA = 1024;
-    static constexpr int mRANGE_TOT = 1024;
     int mNumEvents = 0; // internal counter for re-calculating average values for heatmap
 
   bool checkDAQHHeader(o2::focal::HCalROCDataLink half);
@@ -93,25 +89,25 @@ class HCalTestbeamTask final : public TaskInterface
   
   TH1* mPayloadSizeHCalGBT = nullptr;
 
-  std::array<TH2*, mNUM_ASICS> mHCalASICChannelADC;
-  std::array<TH2*, mNUM_ASICS> mHCalASICChannelTOA;
-  std::array<TH2*, mNUM_ASICS> mHCalASICChannelTOT;
+  TH2*	   mHCalROCADC[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
+  TH2*	   mHCalROCTOT[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
+  TH2*	   mHCalROCTOA[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
 
-  TCanvas* mHCalWaveforms[2][2][2];
-  TH2* mHCalWaveformsContainer[2][2][2][36];
+  TCanvas* mHCalWaveforms         [HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK][2];
+  TH2*     mHCalWaveformsContainer[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK][2][HCAL_NUM_CHANNELS_PER_ROC_HALF];
 
   TCanvas* mHCalGlobalADCSumCanvas;
   THStack* mHCalGlobalADCSum;
-  TH1* mHCalGlobalADCSumContainer[16];
+  TH1*     mHCalGlobalADCSumContainer[HCAL_NUM_SAMPLES_PER_EVENT];
 
   TCanvas* mHCalSamplesPerEventCanvas;
   THStack* mHCalSamplesPerEvent;
-  TH1* mHCalSamplesPerEventContainer[2];
+  TH1*     mHCalSamplesPerEventContainer[HCAL_NUM_GBT_LINKS];
 
   TCanvas* mHCalHeatmapCanvas;
-  TH2* mHCalHeatmapContainer[16];
+  TH2*     mHCalHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
 
-  TH2* mHCalDataErrors;
+  TH2*     mHCalDataErrors;
 
 };
 

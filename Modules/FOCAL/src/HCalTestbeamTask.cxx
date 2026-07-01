@@ -40,6 +40,8 @@
 #include <Headers/DataHeader.h>
 #include <Headers/RDHAny.h>
 
+using namespace o2::focal::constants;
+
 namespace o2::quality_control_modules::focal
 {
 
@@ -54,9 +56,38 @@ HCalTestbeamTask::~HCalTestbeamTask()
   if (mHCalGlobalADCSum)    { delete mHCalGlobalADCSum;   }
   if (mPayloadSizeHCalGBT)  { delete mPayloadSizeHCalGBT; }
 
-  for (auto& hist : mHCalASICChannelADC) { delete hist; }
-  for (auto& hist : mHCalASICChannelTOA) { delete hist; }
-  for (auto& hist : mHCalASICChannelTOT) { delete hist; }
+  delete mHCalGlobalADCSumCanvas;
+  delete mHCalGlobalADCSum;
+  
+  delete mHCalSamplesPerEventCanvas;
+  delete mHCalSamplesPerEvent;
+
+  delete mHCalHeatmapCanvas;
+
+  delete mHCalDataErrors;
+
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    delete mHCalSamplesPerEventContainer[i];
+
+    for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
+      delete mHCalROCADC[i][j];
+      delete mHCalROCTOT[i][j];
+      delete mHCalROCTOA[i][j];
+
+      for (int k = 0; k < 2; ++k) {
+	  delete mHCalWaveforms[i][j][k];
+
+        for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
+	  delete mHCalWaveformsContainer[i][j][k][chn];
+	}
+      }
+    }
+  }
+
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    delete mHCalGlobalADCSumContainer[s];
+    delete mHCalHeatmapContainer[s];
+  }
 }
 
 void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
@@ -72,10 +103,6 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
     mDebugMode = get_bool(hasDebugParam->second);
   }
   
-  std::fill(mHCalASICChannelADC.begin(), mHCalASICChannelADC.end(), nullptr);
-  std::fill(mHCalASICChannelTOA.begin(), mHCalASICChannelTOA.end(), nullptr);
-  std::fill(mHCalASICChannelTOT.begin(), mHCalASICChannelTOT.end(), nullptr);
-
   mTFerrorCounter = new TH1F("NumberOfTFerror", "Number of TFbuilder errors", 2, 0.5, 2.5);
   mTFerrorCounter->GetYaxis()->SetTitle("Time Frame Builder Error");
   mTFerrorCounter->GetXaxis()->SetBinLabel(1, "empty");
@@ -114,15 +141,18 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   getObjectsManager()->startPublishing(mPayloadSizeHCalGBT);
 
 
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Global ADC sum plots
+
   mHCalGlobalADCSumCanvas = new TCanvas("HCalGlobalADCSum", "Global ADC Sum", 1920, 1080);
-  mHCalGlobalADCSum = new THStack("HCalGlobalADCSumStack", "Global ADC Sum Stack");
-  for (int sample = 0; sample < 16; ++sample) {
-    TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%02d", sample),
-			                     Form("Sample %02d", sample),
-			                     256, 0., 0.);
+  mHCalGlobalADCSum       = new THStack("HCalGlobalADCSumStack", "Global ADC Sum");
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%d", s),
+			   Form("Sample %d", s),
+			   256, 0., 0.);
 
     mHCalGlobalADCSum->Add(graph);
-    mHCalGlobalADCSumContainer[sample] = graph;
+    mHCalGlobalADCSumContainer[s] = graph;
   }
 
   mHCalGlobalADCSumCanvas->cd(1);
@@ -131,16 +161,18 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   getObjectsManager()->startPublishing(mHCalGlobalADCSumCanvas);
 
 
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Samples per event plots
+
   mHCalSamplesPerEventCanvas = new TCanvas("HCalSamplesPerEvent", "Number of Samples per Event", 1920, 1080);
-  mHCalSamplesPerEvent = new THStack("HCalSamplesPerEventStack", "Number of Samples per Event");
-  for (int link_id = 0; link_id < 2; ++link_id) {
-    TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink_%d", link_id),
-			                     Form("Link %d", link_id),
-			                     o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT+1,
-                           -0.5, o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT + 0.5);
+  mHCalSamplesPerEvent       = new THStack("HCalSamplesPerEventStack", "Number of Samples per Event");
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink_%d", i),
+			   Form("Link %d", i),
+			   HCAL_NUM_SAMPLES_PER_EVENT + 1, -0.5, HCAL_NUM_SAMPLES_PER_EVENT + 0.5);
 
     mHCalSamplesPerEvent->Add(graph);
-    mHCalSamplesPerEventContainer[link_id] = graph;
+    mHCalSamplesPerEventContainer[i] = graph;
   }
 
   mHCalSamplesPerEventCanvas->cd(1);
@@ -150,58 +182,72 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   getObjectsManager()->startPublishing(mHCalSamplesPerEventCanvas);
 
 
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Heatmap plots
+
   mHCalHeatmapCanvas = new TCanvas("HCalHeatmapCanvas", "HCal Heatmap Canvas", 1920, 1080);
-  mHCalHeatmapCanvas->DivideSquare(16, 0.001, 0.001);
-  for (int sample = 0; sample < 16; ++sample) {
-    mHCalHeatmapCanvas->cd(sample+1);
-    TH2D* graph = new TH2D(Form("HCalHeatmapSample_%02d", sample),
-                           Form("Sample %d", sample),
-                           16, -0.5, 16 - 0.5,
-                           12, -0.5, 12 - 0.2);
+  mHCalHeatmapCanvas->DivideSquare(HCAL_NUM_SAMPLES_PER_EVENT, 0.001, 0.001);
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    mHCalHeatmapCanvas->cd(s+1);
+    TH2D* graph = new TH2D(Form("HCalHeatmapSample_%d", s),
+                           Form("Sample %d", s),
+                           16, -0.5, 16 - 0.5,  // columns
+                           12, -0.5, 12 - 0.2); // rows
 
     graph->SetStats(0);
     graph->Draw("COLZ");
-    //graph->SetMinimum(0.);
-    //graph->SetMaximum(1024.);
     gPad->SetLogz();
-    mHCalHeatmapContainer[sample] = graph;
+    mHCalHeatmapContainer[s] = graph;
   }
+
   getObjectsManager()->startPublishing(mHCalHeatmapCanvas);
 
 
-  for (int i = 0; i < mNUM_ASICS; ++i) {
-    mHCalASICChannelADC[i] = new TH2D(Form("HCalADC_ASIC_%d", i),
-                                      Form("ADC per channel (ASIC %d)", i),
-                                      mCHANNELS_PER_ASIC, -0.5, mCHANNELS_PER_ASIC -0.5,
-                                      mRANGE_ADC, 0., mRANGE_ADC);
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Channel-wise ADC, per ROC, plots
 
-    mHCalASICChannelTOT[i] = new TH2D(Form("HCalTOT_ASIC_%d", i),
-                                      Form("TOT per channel (ASIC %d)", i),
-                                      mCHANNELS_PER_ASIC, -0.5, mCHANNELS_PER_ASIC -0.5,
-                                      mRANGE_TOT, 0., mRANGE_TOT);
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
+      mHCalROCADC[i][j] = new TH2D(Form("HCalADC_Link_%d:%d", i, j),
+                                        Form("ADC Per Channel (Link %d:%d)", i, j),
+                                        2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
+                                        256, 0., 1024);
 
-    mHCalASICChannelTOA[i] = new TH2D(Form("HCalTOA_ASIC_%d", i),
-                                      Form("TOA per channel (ASIC %d)", i),
-                                      mCHANNELS_PER_ASIC, -0.5, mCHANNELS_PER_ASIC -0.5,
-                                      mRANGE_TOA, 0., mRANGE_TOA);
+      mHCalROCTOT[i][j] = new TH2D(Form("HCalTOT_Link_%d:%d", i, j),
+                                        Form("TOT Per Channel (Link %d:%d)", i, j),
+                                        2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
+                                        256, 0., 1024);
+
+      mHCalROCTOA[i][j] = new TH2D(Form("HCalTOA_Link_%d:%d", i, j),
+                                        Form("TOA Per Channel (Link %d:%d)", i, j),
+                                        2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
+                                        256, 0., 1024);
   
-    getObjectsManager()->startPublishing(mHCalASICChannelADC[i]);
-    getObjectsManager()->startPublishing(mHCalASICChannelTOT[i]);
-    getObjectsManager()->startPublishing(mHCalASICChannelTOA[i]);
+      getObjectsManager()->startPublishing(mHCalROCADC[i][j]);
+      getObjectsManager()->startPublishing(mHCalROCTOT[i][j]);
+      getObjectsManager()->startPublishing(mHCalROCTOA[i][j]);
+    }
   }
 
-  for (int i = 0; i < o2::focal::constants::HCAL_NUM_GBT_LINKS; ++i) {
-    for (int j = 0; j < o2::focal::constants::HCAL_NUM_ROCS_PER_LINK; ++j) {
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Channel-wise ADC (waveform plots)
+
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
       for (int k = 0; k < 2; ++k) {
-	      TCanvas* currentCanvas = new TCanvas(Form("WaveformsCanvas_Link_%d_ROC_%d.%d", i, j, k), Form("WaveformsCanvas_Link_%d_ROC_%d.%d", i, j, k), 1920, 1080);
-	      currentCanvas->DivideSquare(36, 0.001, 0.001);
+	      TCanvas* currentCanvas = new TCanvas(Form("WaveformsCanvas_Link_%d_ROC_%d.%d", i, j, k), 
+			                           Form("Link %d:%d.%d", i, j, k), 
+						   1920, 1080);
+
+	      currentCanvas->DivideSquare(HCAL_NUM_CHANNELS_PER_ROC_HALF, 0.001, 0.001);
 	      mHCalWaveforms[i][j][k] = currentCanvas;
-	      for (int chn = 0; chn < 36; ++chn) {
+	      for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
 	        currentCanvas->cd(chn+1);
 	        TH2D* graph = new TH2D(Form("HCalADC_Link_%d_ROC_%d_Half_%d_Chn_%d", i, j, k, chn),
-	                       				 Form("ADC per sample (Link %d, ROC %d.%d, chn. %d)", i, j, k, chn),
-	        				               16, 0, 15,
-	        				               128, 0., 1024.);
+	                       	       Form("%d:%d.%d/%d)", i, j, k, chn),
+	        		       HCAL_NUM_SAMPLES_PER_EVENT, 0, HCAL_NUM_SAMPLES_PER_EVENT - 1,
+	        		       128, 0., 1024.);
 	        graph->SetStats(0);
 	        gPad->SetLogz();
 	        graph->Draw();
@@ -213,8 +259,12 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
     }
   }
 
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Data error histogram
+
   // TODO: set up some enum to hold error types to indices or something
-  int numChips = 2 * o2::focal::constants::HCAL_NUM_GBT_LINKS * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK;
+  int numChips = 2 * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK;
   mHCalDataErrors = new TH2I("HCalDataErrors", "HCal Data Errors",
                              numChips, -0.5, numChips - 0.5,  // count errors for each chip
                              5, -0.5, 5 - 0.5);               // number of types of errors
@@ -225,16 +275,19 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalDataErrors->GetYaxis()->SetBinLabel(3, "DAQH_TRAILER_MISMATCH");
   mHCalDataErrors->GetYaxis()->SetBinLabel(4, "HAMMING_BITS_SET");
   mHCalDataErrors->GetYaxis()->SetBinLabel(5, "DECODER_ERROR");
+
   int c = 0;
-  for (int i = 0; i < o2::focal::constants::HCAL_NUM_GBT_LINKS; ++i) {
-    for (int j = 0; j < o2::focal::constants::HCAL_NUM_ROCS_PER_LINK; ++j) {
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
       for (int k = 0; k < 2; ++k) {
-        mHCalDataErrors->GetXaxis()->SetBinLabel(++c, Form("%02d:%02d.%d", i, j, k));
+        mHCalDataErrors->GetXaxis()->SetBinLabel(++c, Form("%d:%d.%d", i, j, k));
       }
     }
   }
-  //mHCalDataErrors->Draw("text colz");
+
   getObjectsManager()->startPublishing(mHCalDataErrors);
+
+  /////////////////////////////////////////////////////////////////////////////////////
 
 }
 
@@ -263,26 +316,28 @@ void HCalTestbeamTask::monitorData(o2::framework::ProcessingContext& ctx)
 
       long int currentpos = 0;
       while (currentpos < databuffer.size()) {
-        auto rdh = reinterpret_cast<const o2::header::RDHAny*>(databuffer.data() + currentpos);
-        auto pageSize = o2::raw::RDHUtils::getMemorySize(rdh);
-        auto pageHeaderSize = o2::raw::RDHUtils::getHeaderSize(rdh);
+        auto rdh             = reinterpret_cast<const o2::header::RDHAny*>(databuffer.data() + currentpos);
+
+        auto pageSize        = o2::raw::RDHUtils::getMemorySize(rdh);
+        auto pageHeaderSize  = o2::raw::RDHUtils::getHeaderSize(rdh);
         auto pagePayloadSize = pageSize - pageHeaderSize;
 
-        auto feeID        = o2::raw::RDHUtils::getFEEID(rdh);
-        auto triggerBC    = o2::raw::RDHUtils::getTriggerBC(rdh);
-        auto triggerOrbit = o2::raw::RDHUtils::getTriggerOrbit(rdh);
-        auto offset       = o2::raw::RDHUtils::getOffsetToNext(rdh);
-        auto stop         = o2::raw::RDHUtils::getStop(rdh);
+        auto feeID           = o2::raw::RDHUtils::getFEEID(rdh);
+        auto triggerBC       = o2::raw::RDHUtils::getTriggerBC(rdh);
+        auto triggerOrbit    = o2::raw::RDHUtils::getTriggerOrbit(rdh);
+        auto offset          = o2::raw::RDHUtils::getOffsetToNext(rdh);
+        auto stop            = o2::raw::RDHUtils::getStop(rdh);
+        
+	currentInteractionRecord.bc    = triggerBC;
+        currentInteractionRecord.orbit = triggerOrbit;
         
         LOGF(debug, "---- New HBF ----");
-        currentInteractionRecord.bc = triggerBC;
-        currentInteractionRecord.orbit = triggerOrbit;
 
-        LOGF(debug, "FEE: %04x", feeID);
-        LOGF(debug, "BC: %d", triggerBC);
-        LOGF(debug, "Orbit: %d", triggerOrbit);
-        LOGF(debug, "Offset to next: %d", offset);
-        LOGF(debug, "Stop bit: %d", stop);
+        LOGF(debug, "FEE: %04x",          feeID        );
+        LOGF(debug, "BC: %d",             triggerBC    );
+        LOGF(debug, "Orbit: %d",          triggerOrbit );
+        LOGF(debug, "Offset to next: %d", offset       );
+        LOGF(debug, "Stop bit: %d",       stop         );
 
         auto pagePayload = databuffer.subspan(currentpos + pageHeaderSize, pagePayloadSize);
         std::copy(pagePayload.begin(), pagePayload.end(), std::back_inserter(recordBuffer));
@@ -319,7 +374,7 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 
   if (not mDecoder.isDataValid()) {
     LOGF(debug, "Event isDataValid = false; skipping");
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK * 2; ++i) {
       mHCalDataErrors->Fill(i, 4., 1.);
     }
 
@@ -328,61 +383,60 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 
   ++mNumEvents;
   LOGF(debug, "events: %d", mNumEvents);
-  for (int link_id = 0; link_id < 2; ++link_id) {
-    int numSamples = mDecoder.getNumSamplesRead(link_id);
-    LOGF(debug, "Samples read from link %02d: %02d)", link_id, numSamples);
-    mHCalSamplesPerEventContainer[link_id]->Fill(numSamples, 1);
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    int numSamples = mDecoder.getNumSamplesRead(i);
+    LOGF(debug, "Samples read from link %d: %d)", i, numSamples);
+    mHCalSamplesPerEventContainer[i]->Fill(numSamples, 1);
   }
 
-  std::array<std::array<o2::focal::HCalGBTLink, o2::focal::constants::HCAL_NUM_GBT_LINKS>, o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT> links = mDecoder.getData();
+  std::array<std::array<o2::focal::HCalGBTLink, HCAL_NUM_GBT_LINKS>, HCAL_NUM_SAMPLES_PER_EVENT> links = mDecoder.getData();
 
   int currentChannel = 0;
-  for (int sample = 0; sample < o2::focal::constants::HCAL_NUM_SAMPLES_PER_EVENT; ++sample) {
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     int globalADCsum = 0;
-    for (int link_id = 0; link_id < 2; ++link_id) {
-      o2::focal::HCalGBTLink currentLink = links[sample][link_id];
-        for (int roc_id = 0; roc_id < 2; ++roc_id) {
-          o2::focal::HCalROC currentROC = currentLink.getROC(roc_id);
-          for (int half = 0; half < 2; ++half) {
-            o2::focal::HCalROCDataLink currentHalf = currentROC.getChipHalf(half);
+
+    for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+      o2::focal::HCalGBTLink currentLink = links[s][i];
+
+        for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
+          o2::focal::HCalROC currentROC = currentLink.getROC(j);
+
+          for (int k = 0; k < 2; ++k) {
+            o2::focal::HCalROCDataLink currentHalf = currentROC.getChipHalf(k);
             bool errored = false;
             if (not checkCRC(currentHalf)) {
               errored = true;
-              LOGF(debug, "CRC mismatch in link %02d:%02d.%d", link_id, roc_id, half);
-              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
-                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             half;
+              LOGF(debug, "CRC mismatch in link %d:%d.%d", i, j, k);
+              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+		           + j * HCAL_NUM_ROCS_PER_LINK 
+			   + k;
 
               mHCalDataErrors->Fill(binIndex, 0., 1.);
             }
             if (not checkDAQHHeader(currentHalf)) {
               errored = true;
-              LOGF(debug, "DAQH header mismatch in link %02d:%02d.%d", link_id, roc_id, half);
-              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
-                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             half;
+              LOGF(debug, "DAQH header mismatch in link %d:%d.%d", i, j, k);
+              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+		           + j * HCAL_NUM_ROCS_PER_LINK 
+			   + k;
 
               mHCalDataErrors->Fill(binIndex, 1., 1.);
             }
             if (not checkDAQHTrailer(currentHalf)) {
               errored = true;
-              LOGF(debug, "DAQH trailer mismatch in link %02d:%02d.%d", link_id, roc_id, half);
-              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
-                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             half;
+              LOGF(debug, "DAQH trailer mismatch in link %d:%d.%d", i, j, k);
+              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+		           + j * HCAL_NUM_ROCS_PER_LINK 
+			   + k;
 
               mHCalDataErrors->Fill(binIndex, 2., 1.);
             }
             if (not checkHammingBits(currentHalf)) {
               errored = true;
-              LOGF(debug, "Hamming decode error bits are set in link %02d:%02d.%d", link_id, roc_id, half);
-              int binIndex = link_id * o2::focal::constants::HCAL_NUM_GBT_LINKS     *
-                                       o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             roc_id  * o2::focal::constants::HCAL_NUM_ROCS_PER_LINK +
-                             half;
+              LOGF(debug, "Hamming decode error bits are set in link %d:%d.%d", i, j, k);
+              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+		           + j * HCAL_NUM_ROCS_PER_LINK 
+			   + k;
 
               mHCalDataErrors->Fill(binIndex, 3., 1.);
             }
@@ -394,38 +448,43 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
             //  }
             //}
 
-            for (int chn = 0; chn < 36; ++chn) {
+            for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
               o2::focal::HCalChannel currentChannel = currentHalf.getChannel(chn);
               int adc = currentChannel.adc;
               int tot = currentChannel.tot;
               int toa = currentChannel.toa;
 
               // TODO: decide on how to fill these plots, i.e. which sample?
-      	      if (sample == 3) {
-                mHCalASICChannelADC[roc_id]->Fill(chn + 36 * half, adc);
-                mHCalASICChannelTOT[roc_id]->Fill(chn + 36 * half, tot);
-                mHCalASICChannelTOA[roc_id]->Fill(chn + 36 * half, toa);
-	            }	    
+      	      if (s == 3) {
+		mHCalROCADC[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, adc);
+		mHCalROCTOT[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, tot);
+		mHCalROCTOA[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, toa);
+	      }	    
 
               globalADCsum += adc;
-              mHCalWaveformsContainer[link_id][roc_id][half][chn]->Fill(sample, adc);
+              mHCalWaveformsContainer[i][j][k][chn]->Fill(s, adc);
 
-              std::pair<int, int> coords = mMapper.getRowCol(link_id, roc_id, half, chn);
+              std::pair<int, int> coords = mMapper.getRowCol(i, j, k, chn);
               if ((coords.first == -1) || (coords.second == -1)) {
                 continue;
               } else {
 
                 // Instead of simply filling histograms with ADC values,
                 // we want to show the "average" ADC value on the heatmaps
-                double previous = mHCalHeatmapContainer[sample]->GetBinContent(coords.second+1, coords.first+1) * mNumEvents; // "unaveraged" value from current cell
-                mHCalHeatmapContainer[sample]->SetBinContent(coords.second+1, coords.first+1, (previous + adc) / (mNumEvents + 1)); // new average value
+                double previous = mHCalHeatmapContainer[s]
+			           ->GetBinContent(coords.second+1, coords.first+1) 
+				     * mNumEvents; // "unaveraged" value from current cell
+
+                mHCalHeatmapContainer[s]->SetBinContent(coords.second+1, 
+				                        coords.first+1, 
+							(previous + adc) / (mNumEvents + 1)); // new average value
               }
             }
           }
         }
     }
 
-  mHCalGlobalADCSumContainer[sample]->Fill(globalADCsum);
+  mHCalGlobalADCSumContainer[s]->Fill(globalADCsum);
   }
 }
 
@@ -442,47 +501,36 @@ void HCalTestbeamTask::endOfActivity(const Activity& /*activity*/)
 void HCalTestbeamTask::reset()
 {
   ILOG(Debug, Devel) << "Resetting the histograms" << ENDM;
-  mTFerrorCounter ->Reset();
-  mFEENumberHBF   ->Reset();
-  mFEENumberTF    ->Reset();
-  mNumLinksTF     ->Reset();
-  mNumHBFPerCRU   ->Reset();
-  mCRUcounter     ->Reset();
-  mPayloadSizeTF  ->Reset();
 
+  mTFerrorCounter     ->Reset();
+  mFEENumberHBF       ->Reset();
+  mFEENumberTF        ->Reset();
+  mNumLinksTF         ->Reset();
+  mNumHBFPerCRU       ->Reset();
+  mCRUcounter         ->Reset();
+  mPayloadSizeTF      ->Reset();
   mPayloadSizeHCalGBT ->Reset();
+  
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    mHCalSamplesPerEventContainer[i]->Reset();
 
-  for (auto& hist : mHCalGlobalADCSumContainer) {
-    if (hist) { hist->Reset(); }
+    for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
+      mHCalROCADC[i][j]->Reset();
+      mHCalROCTOT[i][j]->Reset();
+      mHCalROCTOA[i][j]->Reset();
+
+      for (int k = 0; k < 2; ++k) {
+        for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
+	  mHCalWaveformsContainer[i][j][k][chn]->Reset();
+	}
+      }
+    }
   }
 
-  for (auto& hist : mHCalHeatmapContainer) {
-    if (hist) { hist->Reset(); }
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    mHCalGlobalADCSumContainer[s] ->Reset();
+    mHCalHeatmapContainer[s]      ->Reset();
   }
-
-  for (auto& hist : mHCalSamplesPerEventContainer) {
-    if (hist) { hist->Reset(); }
-  }
-
-  for (auto& hist : mHCalASICChannelADC) {
-      if (hist) { hist->Reset(); }
-  }
-
-  for (auto& hist : mHCalASICChannelTOT) {
-      if (hist) { hist->Reset(); }
-  }
-
-  for (auto& hist : mHCalASICChannelTOA) {
-      if (hist) { hist->Reset(); }
-  }
-
-  TH2** begin = &mHCalWaveformsContainer[0][0][0][0];
-  TH2** end   = begin + 2 + 2 + 2 + 36;
-  for (TH2** it = begin; it != end; ++it) {
-    TH2*& hist = *it;
-    if (hist) { hist->Reset(); }
-  }
-
 }
 
 bool HCalTestbeamTask::isLostTimeframe(framework::ProcessingContext& ctx) const
@@ -530,11 +578,11 @@ bool HCalTestbeamTask::checkHammingBits(o2::focal::HCalROCDataLink half) {
 }
 
 bool HCalTestbeamTask::checkCRC(o2::focal::HCalROCDataLink half) {
-  std::array<unsigned int, o2::focal::constants::HCAL_NUM_GBT_LINES_PER_LINK> words = half.getWords();
-  unsigned int crcWord = words[o2::focal::constants::HCAL_NUM_GBT_LINES_PER_LINK - 1];
+  std::array<unsigned int, HCAL_NUM_GBT_LINES_PER_LINK> words = half.getWords();
+  unsigned int crcWord = words[HCAL_NUM_GBT_LINES_PER_LINK - 1];
 
   boost::crc_basic<32> crc_32(0x04C11DB7, 0x00000000, 0x00000000, false, false);
-  for (int i = 0; i < o2::focal::constants::HCAL_NUM_GBT_LINES_PER_LINK - 1; ++i) {
+  for (int i = 0; i < HCAL_NUM_GBT_LINES_PER_LINK - 1; ++i) {
     unsigned char bytes[4] = {
       static_cast<unsigned char>(words[i] >> 24),
       static_cast<unsigned char>(words[i] >> 16),

@@ -28,6 +28,7 @@
 #include <TProfile2D.h>
 #include <TMath.h>
 #include <TPaveText.h>
+#include <TStyle.h>
 
 #include "DataFormatsFOCAL/Constants.h"
 #include "QualityControl/QcInfoLogger.h"
@@ -88,6 +89,10 @@ HCalTestbeamTask::~HCalTestbeamTask()
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     delete mHCalGlobalADCSumContainer[s];
     delete mHCalHeatmapContainer[s];
+    delete mHCalADCSaturation[s];
+    delete mHCalTOTSaturation[s];
+    delete mHCalTOTZero[s];
+    delete mHCalTOTBelowHalf[s];
   }
 }
 
@@ -147,6 +152,7 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalGlobalADCSumCanvas = new TCanvas("HCalGlobalADCSum", "Global ADC Sum", 1920, 1080);
   mHCalGlobalADCSum       = new THStack("HCalGlobalADCSumStack", "Global ADC Sum");
+  gStyle->SetPalette(kCMYK);
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%d", s),
                            Form("Sample %d", s),
@@ -167,6 +173,7 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalSamplesPerEventCanvas = new TCanvas("HCalSamplesPerEvent", "Number of Samples per Event", 1920, 1080);
   mHCalSamplesPerEvent       = new THStack("HCalSamplesPerEventStack", "Number of Samples per Event");
+  gStyle->SetPalette(kCMYK);
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink_%d", i),
                            Form("Link %d", i),
@@ -310,7 +317,89 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   getObjectsManager()->startPublishing(mHCalDataErrors);
 
+
   /////////////////////////////////////////////////////////////////////////////////////
+  /// ADC Saturation plots
+
+  mHCalADCSaturationCanvas = new TCanvas("HCalADCSaturation", "# Channels with ADC > 1015", 1920, 1080);
+  mHCalADCSaturationStack  = new THStack("HCalADCSaturation", "# Channels with ADC > 1015");
+  gStyle->SetPalette(kCMYK);
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    TH1I* graph = new TH1I(Form("HCalADCSaturationSample%d", s),
+                           Form("Sample %d", s),
+                           16, 0., 0.);
+
+    mHCalADCSaturationStack->Add(graph);
+    mHCalADCSaturation[s] = graph;
+  }
+
+  mHCalADCSaturationCanvas->cd(1);
+  mHCalADCSaturationStack->Draw("plc nostack");
+  gPad->BuildLegend();
+  getObjectsManager()->startPublishing(mHCalADCSaturationCanvas);
+  
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// TOT Saturation plots
+
+  mHCalTOTSaturationCanvas = new TCanvas("HCalTOTSaturation", "# Channels with TOT > 1015", 1920, 1080);
+  mHCalTOTSaturationStack  = new THStack("HCalTOTSaturation", "# Channels with TOT > 1015");
+  gStyle->SetPalette(kCMYK);
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    TH1I* graph = new TH1I(Form("HCalTOTSaturationSample%d", s),
+                           Form("Sample %d", s),
+                           16, 0., 0.);
+
+    mHCalTOTSaturationStack->Add(graph);
+    mHCalTOTSaturation[s] = graph;
+  }
+
+  mHCalTOTSaturationCanvas->cd(1);
+  mHCalTOTSaturationStack->Draw("plc nostack");
+  gPad->BuildLegend();
+  getObjectsManager()->startPublishing(mHCalTOTSaturationCanvas);
+
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// TOT Zero plots
+
+  mHCalTOTZeroCanvas = new TCanvas("HCalTOTZero", "# Channels with TOT = 0", 1920, 1080);
+  mHCalTOTZeroStack  = new THStack("HCalTOTZero", "# Channels with TOT = 0");
+  gStyle->SetPalette(kCMYK);
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    TH1I* graph = new TH1I(Form("HCalTOTZeroSample%d", s),
+                           Form("Sample %d", s),
+                           16, 0., 0.);
+
+    mHCalTOTZeroStack->Add(graph);
+    mHCalTOTZero[s] = graph;
+  }
+
+  mHCalTOTZeroCanvas->cd(1);
+  mHCalTOTZeroStack->Draw("plc nostack");
+  gPad->BuildLegend();
+  getObjectsManager()->startPublishing(mHCalTOTZeroCanvas);
+
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// TOT Below Half plots
+
+  mHCalTOTBelowHalfCanvas = new TCanvas("HCalTOTBelowHalf", "# Channels with TOT < 512", 1920, 1080);
+  mHCalTOTBelowHalfStack  = new THStack("HCalTOTBelowHalf", "# Channels with TOT < 512");
+  gStyle->SetPalette(kCMYK);
+  for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+    TH1I* graph = new TH1I(Form("HCalTOTBelowHalfSample%d", s),
+                           Form("Sample %d", s),
+                           16, 0., 0.);
+
+    mHCalTOTBelowHalfStack->Add(graph);
+    mHCalTOTBelowHalf[s] = graph;
+  }
+
+  mHCalTOTBelowHalfCanvas->cd(1);
+  mHCalTOTBelowHalfStack->Draw("plc nostack");
+  gPad->BuildLegend();
+  getObjectsManager()->startPublishing(mHCalTOTBelowHalfCanvas);
 
 }
 
@@ -428,6 +517,10 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
   int currentChannel = 0;
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     int globalADCsum = 0;
+    int numChannelsSaturatedADC = 0;
+    int numChannelsSaturatedTOT = 0;
+    int numChannelsZeroTOT      = 0;
+    int numChannelsBelowHalfTOT = 0;
 
     for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
       o2::focal::HCalGBTLink currentLink = links[s][i];
@@ -485,7 +578,6 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
           for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
             o2::focal::HCalChannel currentChannel = currentHalf.getChannel(chn);
 
-
             int adc = currentChannel.adc;
             int tot = currentChannel.tot;
             int toa = currentChannel.toa;
@@ -499,6 +591,20 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 
             globalADCsum += adc;
             mHCalWaveformsContainer[i][j][k][chn]->Fill(s, adc);
+
+            if (adc > 1015) {
+              ++numChannelsSaturatedADC;
+            }
+
+            if (tot > 1015) {
+              ++numChannelsSaturatedTOT;
+            }
+            else if (tot == 0) {
+              ++numChannelsZeroTOT;
+            }
+            else if (tot < 512) {
+              ++numChannelsBelowHalfTOT;
+            }
 
             std::pair<int, int> coords = mMapper.getRowCol(i, j, k, chn);
             if ((coords.first == -1) || (coords.second == -1)) {
@@ -520,10 +626,14 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
       }
     }
 
-    mHCalGlobalADCSumContainer[s]->Fill(globalADCsum);
-  }
-}
-
+    mHCalGlobalADCSumContainer[s] ->Fill(globalADCsum);    
+    mHCalADCSaturation[s]         ->Fill(numChannelsSaturatedADC);
+    mHCalTOTSaturation[s]         ->Fill(numChannelsSaturatedTOT);
+    mHCalTOTZero[s]               ->Fill(numChannelsZeroTOT);
+    mHCalTOTBelowHalf[s]          ->Fill(numChannelsBelowHalfTOT);
+  }                                                       
+}                                                         
+                                                          
 void HCalTestbeamTask::endOfCycle()
 {
   ILOG(Debug, Devel) << "endOfCycle" << ENDM;
@@ -566,6 +676,10 @@ void HCalTestbeamTask::reset()
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     mHCalGlobalADCSumContainer[s] ->Reset();
     mHCalHeatmapContainer[s]      ->Reset();
+    mHCalADCSaturation[s]         ->Reset();
+    mHCalTOTSaturation[s]         ->Reset();
+    mHCalTOTZero[s]               ->Reset();
+    mHCalTOTBelowHalf[s]          ->Reset();
   }
 }
 

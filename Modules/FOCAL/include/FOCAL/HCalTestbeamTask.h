@@ -109,6 +109,22 @@ class HCalTestbeamTask final : public TaskInterface
 
   TH2*      mHCalDataErrors;
 
+  TCanvas*  mHCalADCSaturationCanvas;
+  THStack*  mHCalADCSaturationStack;
+  TH1*      mHCalADCSaturation[HCAL_NUM_SAMPLES_PER_EVENT];
+
+  TCanvas*  mHCalTOTSaturationCanvas;
+  THStack*  mHCalTOTSaturationStack;
+  TH1*      mHCalTOTSaturation[HCAL_NUM_SAMPLES_PER_EVENT];
+
+  TCanvas*  mHCalTOTZeroCanvas;
+  THStack*  mHCalTOTZeroStack;
+  TH1*      mHCalTOTZero[HCAL_NUM_SAMPLES_PER_EVENT];
+
+  TCanvas*  mHCalTOTBelowHalfCanvas;
+  THStack*  mHCalTOTBelowHalfStack;
+  TH1*      mHCalTOTBelowHalf[HCAL_NUM_SAMPLES_PER_EVENT];
+
 };
 
 } // namespace o2::quality_control_modules::focal

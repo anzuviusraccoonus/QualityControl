@@ -87,27 +87,27 @@ class HCalTestbeamTask final : public TaskInterface
   /// HCal-specific histograms
   /////////////////////////////////////////////////////////////////////////////////////
   
-  TH1* mPayloadSizeHCalGBT = nullptr;
+  TH1*      mPayloadSizeHCalGBT = nullptr;
 
-  TH2*	   mHCalROCADC[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
-  TH2*	   mHCalROCTOT[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
-  TH2*	   mHCalROCTOA[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
+  TH2*      mHCalROCADC[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
+  TH2*      mHCalROCTOT[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
+  TH2*      mHCalROCTOA[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK];
 
-  TCanvas* mHCalWaveforms         [HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK][2];
-  TH2*     mHCalWaveformsContainer[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK][2][HCAL_NUM_CHANNELS_PER_ROC_HALF];
+  TCanvas*  mHCalWaveforms         [HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK][2];
+  TH2*      mHCalWaveformsContainer[HCAL_NUM_GBT_LINKS][HCAL_NUM_ROCS_PER_LINK][2][HCAL_NUM_CHANNELS_PER_ROC_HALF];
 
-  TCanvas* mHCalGlobalADCSumCanvas;
-  THStack* mHCalGlobalADCSum;
-  TH1*     mHCalGlobalADCSumContainer[HCAL_NUM_SAMPLES_PER_EVENT];
+  TCanvas*  mHCalGlobalADCSumCanvas;
+  THStack*  mHCalGlobalADCSum;
+  TH1*      mHCalGlobalADCSumContainer[HCAL_NUM_SAMPLES_PER_EVENT];
 
-  TCanvas* mHCalSamplesPerEventCanvas;
-  THStack* mHCalSamplesPerEvent;
-  TH1*     mHCalSamplesPerEventContainer[HCAL_NUM_GBT_LINKS];
+  TCanvas*  mHCalSamplesPerEventCanvas;
+  THStack*  mHCalSamplesPerEvent;
+  TH1*      mHCalSamplesPerEventContainer[HCAL_NUM_GBT_LINKS];
 
-  TCanvas* mHCalHeatmapCanvas;
-  TH2*     mHCalHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
+  TCanvas*  mHCalHeatmapCanvas;
+  TH2*      mHCalHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
 
-  TH2*     mHCalDataErrors;
+  TH2*      mHCalDataErrors;
 
 };
 

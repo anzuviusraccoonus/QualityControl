@@ -27,6 +27,7 @@
 #include <TH2.h>
 #include <TProfile2D.h>
 #include <TMath.h>
+#include <TPaveText.h>
 
 #include "DataFormatsFOCAL/Constants.h"
 #include "QualityControl/QcInfoLogger.h"
@@ -75,11 +76,11 @@ HCalTestbeamTask::~HCalTestbeamTask()
       delete mHCalROCTOA[i][j];
 
       for (int k = 0; k < 2; ++k) {
-	  delete mHCalWaveforms[i][j][k];
+        delete mHCalWaveforms[i][j][k];
 
         for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
-	  delete mHCalWaveformsContainer[i][j][k][chn];
-	}
+          delete mHCalWaveformsContainer[i][j][k][chn];
+        }
       }
     }
   }
@@ -148,8 +149,8 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalGlobalADCSum       = new THStack("HCalGlobalADCSumStack", "Global ADC Sum");
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%d", s),
-			   Form("Sample %d", s),
-			   256, 0., 0.);
+                           Form("Sample %d", s),
+                           256, 0., 0.);
 
     mHCalGlobalADCSum->Add(graph);
     mHCalGlobalADCSumContainer[s] = graph;
@@ -168,8 +169,8 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalSamplesPerEvent       = new THStack("HCalSamplesPerEventStack", "Number of Samples per Event");
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink_%d", i),
-			   Form("Link %d", i),
-			   HCAL_NUM_SAMPLES_PER_EVENT + 1, -0.5, HCAL_NUM_SAMPLES_PER_EVENT + 0.5);
+                           Form("Link %d", i),
+                           HCAL_NUM_SAMPLES_PER_EVENT + 1, -0.5, HCAL_NUM_SAMPLES_PER_EVENT + 0.5);
 
     mHCalSamplesPerEvent->Add(graph);
     mHCalSamplesPerEventContainer[i] = graph;
@@ -222,6 +223,14 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
                                         Form("TOA Per Channel (Link %d:%d)", i, j),
                                         2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
                                         256, 0., 1024);
+
+      mHCalROCADC[i][j]->GetXaxis()->SetTitle("Channel Index");
+      mHCalROCTOT[i][j]->GetXaxis()->SetTitle("Channel Index");
+      mHCalROCTOA[i][j]->GetXaxis()->SetTitle("Channel Index");
+      
+      mHCalROCADC[i][j]->GetYaxis()->SetTitle("ADC");
+      mHCalROCTOT[i][j]->GetYaxis()->SetTitle("TOT (Coded)");
+      mHCalROCTOA[i][j]->GetYaxis()->SetTitle("TOA (Coded)");
   
       getObjectsManager()->startPublishing(mHCalROCADC[i][j]);
       getObjectsManager()->startPublishing(mHCalROCTOT[i][j]);
@@ -236,24 +245,37 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
       for (int k = 0; k < 2; ++k) {
-	      TCanvas* currentCanvas = new TCanvas(Form("WaveformsCanvas_Link_%d_ROC_%d.%d", i, j, k), 
-			                           Form("Link %d:%d.%d", i, j, k), 
-						   1920, 1080);
+        TCanvas* currentCanvas = new TCanvas(Form("WaveformsCanvas_Link_%d_ROC_%d.%d", i, j, k), 
+                                             Form("Link %d:%d.%d", i, j, k), 
+                                             1920, 1080);
 
-	      currentCanvas->DivideSquare(HCAL_NUM_CHANNELS_PER_ROC_HALF, 0.001, 0.001);
-	      mHCalWaveforms[i][j][k] = currentCanvas;
-	      for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
-	        currentCanvas->cd(chn+1);
-	        TH2D* graph = new TH2D(Form("HCalADC_Link_%d_ROC_%d_Half_%d_Chn_%d", i, j, k, chn),
-	                       	       Form("%d:%d.%d/%d)", i, j, k, chn),
-	        		       HCAL_NUM_SAMPLES_PER_EVENT, 0, HCAL_NUM_SAMPLES_PER_EVENT - 1,
-	        		       128, 0., 1024.);
-	        graph->SetStats(0);
-	        gPad->SetLogz();
-	        graph->Draw();
-	        mHCalWaveformsContainer[i][j][k][chn] = graph;
-	      }
-	    
+        currentCanvas->DivideSquare(HCAL_NUM_CHANNELS_PER_ROC_HALF, 0.001, 0.001);
+        mHCalWaveforms[i][j][k] = currentCanvas;
+        for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
+          currentCanvas->cd(chn+1);
+          TH2D* graph = new TH2D(Form("HCalADC_Link_%d_ROC_%d_Half_%d_Chn_%d", i, j, k, chn),
+                                 Form("%d:%d.%d/%d)", i, j, k, chn),
+                                 HCAL_NUM_SAMPLES_PER_EVENT, 0, HCAL_NUM_SAMPLES_PER_EVENT - 1,
+                                 128, 0., 1024.);
+          graph->SetStats(0);
+          graph->GetXaxis()->SetTitle("Sample");
+          graph->GetYaxis()->SetTitle("ADC");
+          gPad->SetLogz();
+          graph->Draw();
+
+          TPaveText* info = new TPaveText(0.55, 0.75, 0.9, 0.9, "NDC");
+          info->SetTextSize(0.08);
+          info->SetFillColor(0);
+          info->SetFillStyle(4000);
+          info->SetBorderSize(0);
+          info->AddText(Form("CHANNEL %02d", chn));
+          info->Draw();
+
+          mHCalWaveformsContainer[i][j][k][chn] = graph;
+        }
+
+      currentCanvas->Modified();
+      currentCanvas->Update();
       getObjectsManager()->startPublishing(currentCanvas);
       }
     }
@@ -275,6 +297,7 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalDataErrors->GetYaxis()->SetBinLabel(3, "DAQH_TRAILER_MISMATCH");
   mHCalDataErrors->GetYaxis()->SetBinLabel(4, "HAMMING_BITS_SET");
   mHCalDataErrors->GetYaxis()->SetBinLabel(5, "DECODER_ERROR");
+  mHCalDataErrors->SetStats(0);
 
   int c = 0;
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
@@ -306,12 +329,21 @@ void HCalTestbeamTask::monitorData(o2::framework::ProcessingContext& ctx)
 {
   constexpr unsigned short FEE_HCal = 0xBEEF;
 
+  if (isLostTimeframe(ctx)) {
+    mTFerrorCounter->Fill(1);
+    return;
+  } else {
+    mTFerrorCounter->Fill(2);
+  }
+    
   std::vector<char> recordBuffer;
   o2::InteractionRecord currentInteractionRecord;
   for (const auto& rawData : framework::InputRecordWalker(ctx.inputs())) {
     recordBuffer.clear();
     if (rawData.header != nullptr && rawData.payload != nullptr) {
       const auto payloadSize = o2::framework::DataRefUtils::getPayloadSize(rawData); 
+      mPayloadSizeTF->Fill(payloadSize);
+
       gsl::span<const char> databuffer(rawData.payload, payloadSize);
 
       long int currentpos = 0;
@@ -328,7 +360,7 @@ void HCalTestbeamTask::monitorData(o2::framework::ProcessingContext& ctx)
         auto offset          = o2::raw::RDHUtils::getOffsetToNext(rdh);
         auto stop            = o2::raw::RDHUtils::getStop(rdh);
         
-	currentInteractionRecord.bc    = triggerBC;
+        currentInteractionRecord.bc    = triggerBC;
         currentInteractionRecord.orbit = triggerOrbit;
         
         LOGF(debug, "---- New HBF ----");
@@ -346,6 +378,8 @@ void HCalTestbeamTask::monitorData(o2::framework::ProcessingContext& ctx)
         auto triggerType = o2::raw::RDHUtils::getTriggerType(rdh);
         if (triggerType & o2::trigger::HB) {
           if (stop) {
+            mNumHBFPerCRU->Fill(o2::raw::RDHUtils::getCRUID(rdh));
+            mCRUcounter->Fill(o2::raw::RDHUtils::getEndPointID(rdh), o2::raw::RDHUtils::getLinkID(rdh));
             if (recordBuffer.size() == 0) {
             } else {
               if (feeID == FEE_HCal) {
@@ -398,93 +432,93 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
     for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
       o2::focal::HCalGBTLink currentLink = links[s][i];
 
-        for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
-          o2::focal::HCalROC currentROC = currentLink.getROC(j);
+      for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
+        o2::focal::HCalROC currentROC = currentLink.getROC(j);
 
-          for (int k = 0; k < 2; ++k) {
-            o2::focal::HCalROCDataLink currentHalf = currentROC.getChipHalf(k);
-            bool errored = false;
-            if (not checkCRC(currentHalf)) {
-              errored = true;
-              LOGF(debug, "CRC mismatch in link %d:%d.%d", i, j, k);
-              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
-		           + j * HCAL_NUM_ROCS_PER_LINK 
-			   + k;
+        for (int k = 0; k < 2; ++k) {
+          o2::focal::HCalROCDataLink currentHalf = currentROC.getChipHalf(k);
+          bool errored = false;
+          if (not checkCRC(currentHalf)) {
+            errored = true;
+            LOGF(debug, "CRC mismatch in link %d:%d.%d", i, j, k);
+            int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+                         + j * HCAL_NUM_ROCS_PER_LINK 
+                         + k;
 
-              mHCalDataErrors->Fill(binIndex, 0., 1.);
-            }
-            if (not checkDAQHHeader(currentHalf)) {
-              errored = true;
-              LOGF(debug, "DAQH header mismatch in link %d:%d.%d", i, j, k);
-              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
-		           + j * HCAL_NUM_ROCS_PER_LINK 
-			   + k;
+            mHCalDataErrors->Fill(binIndex, 0., 1.);
+          }
+          if (not checkDAQHHeader(currentHalf)) {
+            errored = true;
+            LOGF(debug, "DAQH header mismatch in link %d:%d.%d", i, j, k);
+            int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+                         + j * HCAL_NUM_ROCS_PER_LINK 
+                         + k;
 
-              mHCalDataErrors->Fill(binIndex, 1., 1.);
-            }
-            if (not checkDAQHTrailer(currentHalf)) {
-              errored = true;
-              LOGF(debug, "DAQH trailer mismatch in link %d:%d.%d", i, j, k);
-              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
-		           + j * HCAL_NUM_ROCS_PER_LINK 
-			   + k;
+            mHCalDataErrors->Fill(binIndex, 1., 1.);
+          }
+          if (not checkDAQHTrailer(currentHalf)) {
+            errored = true;
+            LOGF(debug, "DAQH trailer mismatch in link %d:%d.%d", i, j, k);
+            int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+                         + j * HCAL_NUM_ROCS_PER_LINK 
+                         + k;
 
-              mHCalDataErrors->Fill(binIndex, 2., 1.);
-            }
-            if (not checkHammingBits(currentHalf)) {
-              errored = true;
-              LOGF(debug, "Hamming decode error bits are set in link %d:%d.%d", i, j, k);
-              int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
-		           + j * HCAL_NUM_ROCS_PER_LINK 
-			   + k;
+            mHCalDataErrors->Fill(binIndex, 2., 1.);
+          }
+          if (not checkHammingBits(currentHalf)) {
+            errored = true;
+            LOGF(debug, "Hamming decode error bits are set in link %d:%d.%d", i, j, k);
+            int binIndex = i * HCAL_NUM_GBT_LINKS * HCAL_NUM_ROCS_PER_LINK 
+                         + j * HCAL_NUM_ROCS_PER_LINK 
+                         + k;
 
-              mHCalDataErrors->Fill(binIndex, 3., 1.);
-            }
+            mHCalDataErrors->Fill(binIndex, 3., 1.);
+          }
 
-            //if (errored) {
-            //  auto words = currentHalf.getWords();
-            //  for (const auto& w : words) {
-            //    LOGF(debug, "%08X", w);
-            //  }
-            //}
+          //if (errored) {
+          //  auto words = currentHalf.getWords();
+          //  for (const auto& w : words) {
+          //    LOGF(debug, "%08X", w);
+          //  }
+          //}
 
-            for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
-              o2::focal::HCalChannel currentChannel = currentHalf.getChannel(chn);
-              int adc = currentChannel.adc;
-              int tot = currentChannel.tot;
-              int toa = currentChannel.toa;
+          for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
+            o2::focal::HCalChannel currentChannel = currentHalf.getChannel(chn);
+            int adc = currentChannel.adc;
+            int tot = currentChannel.tot;
+            int toa = currentChannel.toa;
 
-              // TODO: decide on how to fill these plots, i.e. which sample?
-      	      if (s == 3) {
-		mHCalROCADC[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, adc);
-		mHCalROCTOT[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, tot);
-		mHCalROCTOA[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, toa);
-	      }	    
+            // TODO: decide on how to fill these plots, i.e. which sample?
+            if (s == 3) {
+              mHCalROCADC[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, adc);
+              mHCalROCTOT[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, tot);
+              mHCalROCTOA[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, toa);
+            }     
 
-              globalADCsum += adc;
-              mHCalWaveformsContainer[i][j][k][chn]->Fill(s, adc);
+            globalADCsum += adc;
+            mHCalWaveformsContainer[i][j][k][chn]->Fill(s, adc);
 
-              std::pair<int, int> coords = mMapper.getRowCol(i, j, k, chn);
-              if ((coords.first == -1) || (coords.second == -1)) {
-                continue;
-              } else {
+            std::pair<int, int> coords = mMapper.getRowCol(i, j, k, chn);
+            if ((coords.first == -1) || (coords.second == -1)) {
+              continue;
+            } else {
 
-                // Instead of simply filling histograms with ADC values,
-                // we want to show the "average" ADC value on the heatmaps
-                double previous = mHCalHeatmapContainer[s]
-			           ->GetBinContent(coords.second+1, coords.first+1) 
-				     * mNumEvents; // "unaveraged" value from current cell
+              // Instead of simply filling histograms with ADC values,
+              // we want to show the "average" ADC value on the heatmaps
+              double previous = mHCalHeatmapContainer[s]
+                                ->GetBinContent(coords.second+1, coords.first+1) 
+                                * mNumEvents; // "unaveraged" value from current cell
 
-                mHCalHeatmapContainer[s]->SetBinContent(coords.second+1, 
-				                        coords.first+1, 
-							(previous + adc) / (mNumEvents + 1)); // new average value
-              }
+              mHCalHeatmapContainer[s]->SetBinContent(coords.second+1, 
+                                                      coords.first+1, 
+                                                      (previous + adc) / (mNumEvents + 1)); // new average value
             }
           }
         }
+      }
     }
 
-  mHCalGlobalADCSumContainer[s]->Fill(globalADCsum);
+    mHCalGlobalADCSumContainer[s]->Fill(globalADCsum);
   }
 }
 
@@ -521,8 +555,8 @@ void HCalTestbeamTask::reset()
 
       for (int k = 0; k < 2; ++k) {
         for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
-	  mHCalWaveformsContainer[i][j][k][chn]->Reset();
-	}
+          mHCalWaveformsContainer[i][j][k][chn]->Reset();
+        }
       }
     }
   }
@@ -537,10 +571,11 @@ bool HCalTestbeamTask::isLostTimeframe(framework::ProcessingContext& ctx) const
 {
   // direct data
   constexpr auto originFOC = header::gDataOriginFOC;
-  o2::framework::InputSpec dummy{ "dummy",
-                                  framework::ConcreteDataMatcher{ originFOC,
-                                                                  header::gDataDescriptionRawData,
-                                                                  0xDEADBEEF } };
+  o2::framework::InputSpec dummy{"dummy", 
+                                 framework::ConcreteDataMatcher{originFOC,
+                                                                header::gDataDescriptionRawData,
+                                                                0xDEADBEEF} };
+
   for (const auto& ref : o2::framework::InputRecordWalker(ctx.inputs(), { dummy })) {
     const auto dh = o2::framework::DataRefUtils::getHeader<o2::header::DataHeader*>(ref);
     const auto payloadSize = o2::framework::DataRefUtils::getPayloadSize(ref);
@@ -550,10 +585,11 @@ bool HCalTestbeamTask::isLostTimeframe(framework::ProcessingContext& ctx) const
   }
 
   // sampled data
-  o2::framework::InputSpec dummyDS{ "dummyDS",
-                                    framework::ConcreteDataMatcher{ "DS",
-                                                                    "focrawdata0",
-                                                                    0xDEADBEEF } };
+  o2::framework::InputSpec dummyDS{"dummyDS",
+                                   framework::ConcreteDataMatcher{"DS",
+                                                                  "focrawdata0",
+                                                                  0xDEADBEEF } };
+
   for (const auto& ref : o2::framework::InputRecordWalker(ctx.inputs(), { dummyDS })) {
     const auto dh = o2::framework::DataRefUtils::getHeader<o2::header::DataHeader*>(ref);
     const auto payloadSize = o2::framework::DataRefUtils::getPayloadSize(ref);

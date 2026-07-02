@@ -151,11 +151,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   /////////////////////////////////////////////////////////////////////////////////////
   /// Global ADC sum plots
 
-  mHCalGlobalADCSumCanvas = new TCanvas("HCalGlobalADCSum", "Global ADC Sum", 1920, 1080);
-  mHCalGlobalADCSum       = new THStack("HCalGlobalADCSumStack", "Global ADC Sum");
+  mHCalGlobalADCSumCanvas = new TCanvas("HCalGlobalADCSum", "Global ADC Sums per Sample", 1920, 1080);
+  mHCalGlobalADCSum       = new THStack("HCalGlobalADCSumStack", "Global ADC Sums per Sample");
   gStyle->SetPalette(kCMYK);
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
-    TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample_%d", s),
+    TH1I* graph = new TH1I(Form("HCalGlobalADCSumSample%d", s),
                            Form("Sample %d", s),
                            256, 0., 0.);
 
@@ -180,8 +180,8 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalSamplesPerEvent       = new THStack("HCalSamplesPerEventStack", "Number of Samples per Event");
   gStyle->SetPalette(kCMYK);
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
-    TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink_%d", i),
-                           Form("Link %d", i),
+    TH1I* graph = new TH1I(Form("HCalSamplesPerEventLink%d", i),
+                           Form("GBT Link %d", i),
                            HCAL_NUM_SAMPLES_PER_EVENT + 1, -0.5, HCAL_NUM_SAMPLES_PER_EVENT + 0.5);
 
     mHCalSamplesPerEvent->Add(graph);
@@ -206,7 +206,7 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalHeatmapCanvas->DivideSquare(HCAL_NUM_SAMPLES_PER_EVENT, 0.001, 0.001);
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     mHCalHeatmapCanvas->cd(s+1);
-    TH2D* graph = new TH2D(Form("HCalHeatmapSample_%d", s),
+    TH2D* graph = new TH2D(Form("HCalHeatmapSample%d", s),
                            Form("Sample %d", s),
                            16, -0.5, 16 - 0.5,  // columns
                            12, -0.5, 12 - 0.2); // rows
@@ -225,17 +225,17 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
-      mHCalROCADC[i][j] = new TH2D(Form("HCalADC_Link_%d:%d", i, j),
+      mHCalROCADC[i][j] = new TH2D(Form("HCalADCLink%d:%d", i, j),
                                         Form("ADC Per Channel (Link %d:%d)", i, j),
                                         2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
                                         256, 0., 1024);
 
-      mHCalROCTOT[i][j] = new TH2D(Form("HCalTOT_Link_%d:%d", i, j),
+      mHCalROCTOT[i][j] = new TH2D(Form("HCalTOTLink%d:%d", i, j),
                                         Form("TOT Per Channel (Link %d:%d)", i, j),
                                         2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
                                         256, 0., 1024);
 
-      mHCalROCTOA[i][j] = new TH2D(Form("HCalTOA_Link_%d:%d", i, j),
+      mHCalROCTOA[i][j] = new TH2D(Form("HCalTOALink%d:%d", i, j),
                                         Form("TOA Per Channel (Link %d:%d)", i, j),
                                         2*HCAL_NUM_CHANNELS_PER_ROC_HALF, -0.5, 2*HCAL_NUM_CHANNELS_PER_ROC_HALF -0.5,
                                         256, 0., 1024);
@@ -261,7 +261,7 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
       for (int k = 0; k < 2; ++k) {
-        TCanvas* currentCanvas = new TCanvas(Form("WaveformsCanvas_Link_%d_ROC_%d.%d", i, j, k), 
+        TCanvas* currentCanvas = new TCanvas(Form("WaveformsCanvasLink%d:%d.%d", i, j, k), 
                                              Form("Link %d:%d.%d", i, j, k), 
                                              1920, 1080);
 
@@ -269,7 +269,7 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
         mHCalWaveforms[i][j][k] = currentCanvas;
         for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
           currentCanvas->cd(chn+1);
-          TH2D* graph = new TH2D(Form("HCalADC_Link_%d_ROC_%d_Half_%d_Chn_%d", i, j, k, chn),
+          TH2D* graph = new TH2D(Form("HCalADCLink%d:%d.%d/%d", i, j, k, chn),
                                  Form("%d:%d.%d/%d)", i, j, k, chn),
                                  HCAL_NUM_SAMPLES_PER_EVENT, 0, HCAL_NUM_SAMPLES_PER_EVENT - 1,
                                  128, 0., 1024.);

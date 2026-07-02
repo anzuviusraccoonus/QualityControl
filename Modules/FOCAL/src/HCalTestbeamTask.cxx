@@ -484,16 +484,18 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 
           for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
             o2::focal::HCalChannel currentChannel = currentHalf.getChannel(chn);
+
+
             int adc = currentChannel.adc;
             int tot = currentChannel.tot;
             int toa = currentChannel.toa;
-
+            
             // TODO: decide on how to fill these plots, i.e. which sample?
-            if (s == 3) {
-              mHCalROCADC[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, adc);
-              mHCalROCTOT[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, tot);
-              mHCalROCTOA[i][j]->Fill(chn + HCAL_NUM_SAMPLES_PER_EVENT * k, toa);
-            }     
+            //if (s == 3) {
+              mHCalROCADC[i][j]->Fill(chn + HCAL_NUM_CHANNELS_PER_ROC_HALF * k, adc);
+              mHCalROCTOT[i][j]->Fill(chn + HCAL_NUM_CHANNELS_PER_ROC_HALF * k, tot);
+              mHCalROCTOA[i][j]->Fill(chn + HCAL_NUM_CHANNELS_PER_ROC_HALF * k, toa);
+            //}     
 
             globalADCsum += adc;
             mHCalWaveformsContainer[i][j][k][chn]->Fill(s, adc);

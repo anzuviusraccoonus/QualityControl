@@ -106,6 +106,12 @@ class HCalTestbeamTask final : public TaskInterface
 
   TCanvas*  mHCalHeatmapCanvas;
   TH2*      mHCalHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
+  
+  TCanvas*  mHCalTOTHeatmapCanvas;
+  TH2*      mHCalTOTHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
+  
+  TCanvas*  mHCalTOAHeatmapCanvas;
+  TH2*      mHCalTOAHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
 
   TH2*      mHCalDataErrors;
 

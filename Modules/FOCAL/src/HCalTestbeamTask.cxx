@@ -77,11 +77,15 @@ HCalTestbeamTask::~HCalTestbeamTask()
   delete mHCalTOTBelowHalfCanvas;
   delete mHCalTOTBelowHalfStack;
 
-  delete mHCalHeatmapCanvas;
+  delete mHCalADCHeatmapCanvas;
   delete mHCalTOTHeatmapCanvas;
   delete mHCalTOAHeatmapCanvas;
 
   delete mHCalDataErrors;
+
+  delete mHCalADCvsTOT;
+  delete mHCalADCvsTOA;
+  delete mHCalTOTvsTOA;
 
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     delete mHCalSamplesPerEventContainer[i];
@@ -103,7 +107,7 @@ HCalTestbeamTask::~HCalTestbeamTask()
 
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     delete mHCalGlobalADCSumContainer[s];
-    delete mHCalHeatmapContainer[s];
+    delete mHCalADCHeatmapContainer[s];
     delete mHCalTOTHeatmapContainer[s];
     delete mHCalTOAHeatmapContainer[s];
     delete mHCalADCSaturation[s];
@@ -218,11 +222,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   /////////////////////////////////////////////////////////////////////////////////////
   /// Heatmap plots
 
-  mHCalHeatmapCanvas = new TCanvas("HCalHeatmapCanvas", "HCal ADC Heatmap Canvas", 1920, 1080);
-  mHCalHeatmapCanvas->DivideSquare(HCAL_NUM_SAMPLES_PER_EVENT, 0.001, 0.001);
+  mHCalADCHeatmapCanvas = new TCanvas("HCalADCHeatmapCanvas", "HCal ADC Heatmap Canvas", 1920, 1080);
+  mHCalADCHeatmapCanvas->DivideSquare(HCAL_NUM_SAMPLES_PER_EVENT, 0.001, 0.001);
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
-    mHCalHeatmapCanvas->cd(s+1);
-    TH2D* graph = new TH2D(Form("HCalHeatmapSample%d", s),
+    mHCalADCHeatmapCanvas->cd(s+1);
+    TH2D* graph = new TH2D(Form("HCalADCHeatmapSample%d", s),
                            Form("Sample %d", s),
                            16, -0.5, 16 - 0.5,  // columns
                            12, -0.5, 12 - 0.2); // rows
@@ -230,10 +234,10 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
     graph->SetStats(0);
     graph->Draw("COLZ");
     gPad->SetLogz();
-    mHCalHeatmapContainer[s] = graph;
+    mHCalADCHeatmapContainer[s] = graph;
   }
 
-  getObjectsManager()->startPublishing(mHCalHeatmapCanvas);
+  getObjectsManager()->startPublishing(mHCalADCHeatmapCanvas);
 
   mHCalTOTHeatmapCanvas = new TCanvas("HCalTOTHeatmapCanvas", "HCal TOT Heatmap Canvas", 1920, 1080);
   mHCalTOTHeatmapCanvas->DivideSquare(HCAL_NUM_SAMPLES_PER_EVENT, 0.001, 0.001);
@@ -476,6 +480,34 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalTOTBelowHalfCanvas);
 
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// ADC/TOT/TOA Correlation plots
+
+  mHCalADCvsTOT = new TH2I("HCalADCvsTOT", "ADC/TOT Correlation", 
+                           256, 0, 1023,
+                           256, 0, 1023);
+
+  mHCalADCvsTOA = new TH2I("HCalADCvsTOA", "ADC/TOA Correlation", 
+                           256, 0, 1023,
+                           256, 0, 1023);
+
+  mHCalTOTvsTOA = new TH2I("HCalTOTvsTOA", "TOT/TOA Correlation", 
+                           256, 0, 1023,
+                           256, 0, 1023);
+
+  mHCalADCvsTOT->GetXaxis()->SetTitle("TOT");
+  mHCalADCvsTOA->GetXaxis()->SetTitle("TOA");
+  mHCalTOTvsTOA->GetXaxis()->SetTitle("TOA");
+  
+  mHCalADCvsTOT->GetYaxis()->SetTitle("ADC");
+  mHCalADCvsTOA->GetYaxis()->SetTitle("ADC");
+  mHCalTOTvsTOA->GetYaxis()->SetTitle("TOT");
+  
+  getObjectsManager()->startPublishing(mHCalADCvsTOT);
+  getObjectsManager()->startPublishing(mHCalADCvsTOA);
+  getObjectsManager()->startPublishing(mHCalTOTvsTOA);
+
 }
 
 void HCalTestbeamTask::startOfActivity(const Activity& activity)
@@ -662,6 +694,10 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
               mHCalROCADC[i][j]->Fill(chn + HCAL_NUM_CHANNELS_PER_ROC_HALF * k, adc);
               mHCalROCTOT[i][j]->Fill(chn + HCAL_NUM_CHANNELS_PER_ROC_HALF * k, tot);
               mHCalROCTOA[i][j]->Fill(chn + HCAL_NUM_CHANNELS_PER_ROC_HALF * k, toa);
+
+              mHCalADCvsTOT->Fill(tot, adc);
+              mHCalADCvsTOA->Fill(toa, adc);
+              mHCalTOTvsTOA->Fill(toa, tot);
             //}     
 
             globalADCsum += adc;
@@ -688,11 +724,11 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
 
               // Instead of simply filling histograms with ADC values,
               // we want to show the "average" ADC value on the heatmaps
-              double previous = mHCalHeatmapContainer[s]
+              double previous = mHCalADCHeatmapContainer[s]
                                 ->GetBinContent(coords.second+1, coords.first+1) 
                                 * mNumEvents; // "unaveraged" value from current cell
 
-              mHCalHeatmapContainer[s]->SetBinContent(coords.second+1, 
+              mHCalADCHeatmapContainer[s]->SetBinContent(coords.second+1, 
                                                       coords.first+1, 
                                                       (previous + adc) / (mNumEvents + 1)); // new average value
               
@@ -747,6 +783,10 @@ void HCalTestbeamTask::reset()
   mCRUcounter         ->Reset();
   mPayloadSizeTF      ->Reset();
   mPayloadSizeHCalGBT ->Reset();
+
+  mHCalADCvsTOT       ->Reset();
+  mHCalADCvsTOA       ->Reset();
+  mHCalTOTvsTOA       ->Reset();
   
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     mHCalSamplesPerEventContainer[i]->Reset();
@@ -766,7 +806,7 @@ void HCalTestbeamTask::reset()
 
   for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
     mHCalGlobalADCSumContainer[s] ->Reset();
-    mHCalHeatmapContainer[s]      ->Reset();
+    mHCalADCHeatmapContainer[s]   ->Reset();
     mHCalTOTHeatmapContainer[s]   ->Reset();
     mHCalTOAHeatmapContainer[s]   ->Reset();
     mHCalADCSaturation[s]         ->Reset();

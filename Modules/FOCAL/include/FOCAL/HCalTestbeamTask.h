@@ -104,8 +104,8 @@ class HCalTestbeamTask final : public TaskInterface
   THStack*  mHCalSamplesPerEvent;
   TH1*      mHCalSamplesPerEventContainer[HCAL_NUM_GBT_LINKS];
 
-  TCanvas*  mHCalHeatmapCanvas;
-  TH2*      mHCalHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
+  TCanvas*  mHCalADCHeatmapCanvas;
+  TH2*      mHCalADCHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
   
   TCanvas*  mHCalTOTHeatmapCanvas;
   TH2*      mHCalTOTHeatmapContainer[HCAL_NUM_SAMPLES_PER_EVENT];
@@ -130,6 +130,10 @@ class HCalTestbeamTask final : public TaskInterface
   TCanvas*  mHCalTOTBelowHalfCanvas;
   THStack*  mHCalTOTBelowHalfStack;
   TH1*      mHCalTOTBelowHalf[HCAL_NUM_SAMPLES_PER_EVENT];
+
+  TH2*      mHCalADCvsTOT;
+  TH2*      mHCalADCvsTOA;
+  TH2*      mHCalTOTvsTOA;
 
 };
 

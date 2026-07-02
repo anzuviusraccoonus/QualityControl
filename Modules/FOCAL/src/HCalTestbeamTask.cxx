@@ -29,6 +29,7 @@
 #include <TMath.h>
 #include <TPaveText.h>
 #include <TStyle.h>
+#include <TLegend.h>
 
 #include "DataFormatsFOCAL/Constants.h"
 #include "QualityControl/QcInfoLogger.h"
@@ -164,7 +165,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalGlobalADCSumCanvas->cd(1);
   mHCalGlobalADCSum->Draw("plc nostack");
-  gPad->BuildLegend();
+  TLegend* legend = gPad->BuildLegend();
+  legend->SetLineColor(0);
+  legend->SetLineWidth(0);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalGlobalADCSumCanvas);
 
 
@@ -186,7 +191,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHCalSamplesPerEventCanvas->cd(1);
   mHCalSamplesPerEvent->Draw("plc nostack");
   gPad->SetLogy();
-  gPad->BuildLegend();
+  legend = gPad->BuildLegend();
+  legend->SetLineColor(0);
+  legend->SetLineWidth(0);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalSamplesPerEventCanvas);
 
 
@@ -335,7 +344,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalADCSaturationCanvas->cd(1);
   mHCalADCSaturationStack->Draw("plc nostack");
-  gPad->BuildLegend();
+  legend = gPad->BuildLegend();
+  legend->SetLineColor(0);
+  legend->SetLineWidth(0);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalADCSaturationCanvas);
   
 
@@ -356,7 +369,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalTOTSaturationCanvas->cd(1);
   mHCalTOTSaturationStack->Draw("plc nostack");
-  gPad->BuildLegend();
+  legend = gPad->BuildLegend();
+  legend->SetLineColor(0);
+  legend->SetLineWidth(0);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalTOTSaturationCanvas);
 
 
@@ -377,7 +394,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalTOTZeroCanvas->cd(1);
   mHCalTOTZeroStack->Draw("plc nostack");
-  gPad->BuildLegend();
+  legend = gPad->BuildLegend();
+  legend->SetLineColor(0);
+  legend->SetLineWidth(0);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalTOTZeroCanvas);
 
 
@@ -398,7 +419,11 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
 
   mHCalTOTBelowHalfCanvas->cd(1);
   mHCalTOTBelowHalfStack->Draw("plc nostack");
-  gPad->BuildLegend();
+  legend = gPad->BuildLegend();
+  legend->SetLineColor(0);
+  legend->SetLineWidth(0);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
   getObjectsManager()->startPublishing(mHCalTOTBelowHalfCanvas);
 
 }

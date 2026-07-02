@@ -134,6 +134,11 @@ class HCalTestbeamTask final : public TaskInterface
   TH2*      mHCalADCvsTOT;
   TH2*      mHCalADCvsTOA;
   TH2*      mHCalTOTvsTOA;
+  
+  TH1*      mHCalNumTOTValues;
+  TH1*      mHCalNumTOAValues;
+  TH1*      mHCalSampleTOTIdx;
+  TH1*      mHCalSampleTOAIdx;
 
 };
 

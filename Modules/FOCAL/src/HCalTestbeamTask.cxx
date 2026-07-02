@@ -87,6 +87,11 @@ HCalTestbeamTask::~HCalTestbeamTask()
   delete mHCalADCvsTOA;
   delete mHCalTOTvsTOA;
 
+  delete mHCalNumTOTValues;
+  delete mHCalNumTOAValues;
+  delete mHCalSampleTOTIdx;
+  delete mHCalSampleTOAIdx;
+
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     delete mHCalSamplesPerEventContainer[i];
 
@@ -508,6 +513,31 @@ void HCalTestbeamTask::initialize(o2::framework::InitContext& /*ctx*/)
   getObjectsManager()->startPublishing(mHCalADCvsTOA);
   getObjectsManager()->startPublishing(mHCalTOTvsTOA);
 
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /// Number of TOT/TOA values present plots
+
+  mHCalNumTOTValues = new TH1I("HCalNumTOTValues",
+                               "# of Non-Zero TOT Values per Event",
+                               HCAL_NUM_SAMPLES_PER_EVENT, -0.5, HCAL_NUM_SAMPLES_PER_EVENT - 0.5);
+  
+  mHCalNumTOAValues = new TH1I("HCalNumTOAValues",
+                               "# of Non-Zero TOA Values per Event",
+                               HCAL_NUM_SAMPLES_PER_EVENT, -0.5, HCAL_NUM_SAMPLES_PER_EVENT - 0.5);
+  
+  mHCalSampleTOTIdx = new TH1I("HCalSampleTOTIdx",
+                               "Sample Index of Non-Zero TOT Values",
+                               HCAL_NUM_SAMPLES_PER_EVENT, -0.5, HCAL_NUM_SAMPLES_PER_EVENT - 0.5);
+  
+  mHCalSampleTOAIdx = new TH1I("HCalSampleTOAIdx",
+                               "Sample Index of Non-Zero TOA Values",
+                               HCAL_NUM_SAMPLES_PER_EVENT, -0.5, HCAL_NUM_SAMPLES_PER_EVENT - 0.5);
+
+  getObjectsManager()->startPublishing(mHCalNumTOTValues);
+  getObjectsManager()->startPublishing(mHCalNumTOAValues);
+  getObjectsManager()->startPublishing(mHCalSampleTOTIdx);
+  getObjectsManager()->startPublishing(mHCalSampleTOAIdx);
+
 }
 
 void HCalTestbeamTask::startOfActivity(const Activity& activity)
@@ -758,7 +788,36 @@ void HCalTestbeamTask::processHCalEvent(const gsl::span<const char> hcalpayload)
     mHCalTOTSaturation[s]         ->Fill(numChannelsSaturatedTOT);
     mHCalTOTZero[s]               ->Fill(numChannelsZeroTOT);
     mHCalTOTBelowHalf[s]          ->Fill(numChannelsBelowHalfTOT);
-  }                                                       
+  }
+
+  // can't think of a better way to do this right now
+  // running low on caffeine :(
+  for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
+    for (int j = 0; j < HCAL_NUM_ROCS_PER_LINK; ++j) {
+      for (int k = 0; k < 2; ++k) {
+        for (int chn = 0; chn < HCAL_NUM_CHANNELS_PER_ROC_HALF; ++chn) {
+          int numTOTPresent = 0;
+          int numTOAPresent = 0;
+          for (int s = 0; s < HCAL_NUM_SAMPLES_PER_EVENT; ++s) {
+            o2::focal::HCalChannel channel = links[s][i].getROC(j).getChipHalf(k).getChannel(chn);
+            if (channel.tot > 0) { 
+              ++numTOTPresent; 
+              mHCalSampleTOTIdx->Fill(s);
+            }
+
+            if (channel.toa > 0) { 
+              ++numTOAPresent; 
+              mHCalSampleTOAIdx->Fill(s);
+            }
+          }
+
+          mHCalNumTOTValues->Fill(numTOTPresent);
+          mHCalNumTOAValues->Fill(numTOAPresent);
+        }
+      }
+    }
+  }
+
 }                                                         
                                                           
 void HCalTestbeamTask::endOfCycle()
@@ -787,6 +846,11 @@ void HCalTestbeamTask::reset()
   mHCalADCvsTOT       ->Reset();
   mHCalADCvsTOA       ->Reset();
   mHCalTOTvsTOA       ->Reset();
+
+  mHCalNumTOTValues   ->Reset();
+  mHCalNumTOAValues   ->Reset();
+  mHCalSampleTOTIdx   ->Reset();
+  mHCalSampleTOAIdx   ->Reset();
   
   for (int i = 0; i < HCAL_NUM_GBT_LINKS; ++i) {
     mHCalSamplesPerEventContainer[i]->Reset();
